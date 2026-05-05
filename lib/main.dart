@@ -590,9 +590,26 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildWeeklyStreak() {
-    // Decorative streak bar with "days" highlights
-    final days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-    final completed = [true, true, true, false, true, false, false]; // mock
+    // Full unique abbreviations shown BELOW each tile — no ambiguous "T" vs "T"
+    final dayLabels  = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    // Single-letter shown INSIDE the incomplete tile (kept short for space)
+    final dayLetters = ['M',   'Tu',  'W',   'Th',  'F',   'Sa',  'Su'];
+    // Mock completion data — replace with your persistence layer later
+    final completed  = [true, true, true, false, true, false, false];
+
+    // ── Dynamically calculate current streak ──
+    // Walk backwards from today (index 6 = Sun) to find the longest
+    // unbroken run of completed days ending at or before "today".
+    // For this mock we treat Friday (index 4) as "today".
+    const todayIndex = 4; // 0=Mon … 6=Sun
+    int streak = 0;
+    for (int i = todayIndex; i >= 0; i--) {
+      if (completed[i]) {
+        streak++;
+      } else {
+        break; // chain broken — stop counting
+      }
+    }
 
     return AuroraCard(
       padding: const EdgeInsets.all(18),
@@ -603,20 +620,24 @@ class _HomeScreenState extends State<HomeScreen>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('Weekly Streak', style: FG.heading(14)),
+              // Badge shows REAL computed streak
               Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                    color: FG.aurora.withOpacity(0.1),
+                    color: FG.ember.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                        color: FG.aurora.withOpacity(0.3), width: 1)),
+                        color: FG.ember.withOpacity(0.35), width: 1)),
                 child: Row(
                   children: [
                     const Icon(Icons.local_fire_department_rounded,
                         color: FG.ember, size: 14),
                     const SizedBox(width: 4),
-                    Text('4 day streak', style: FG.label(11, color: FG.ember)),
+                    Text(
+                      '$streak day${streak == 1 ? '' : 's'} streak',
+                      style: FG.label(11, color: FG.ember),
+                    ),
                   ],
                 ),
               ),
@@ -626,20 +647,28 @@ class _HomeScreenState extends State<HomeScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: List.generate(7, (i) {
-              final done = completed[i];
+              final done    = completed[i];
+              final isToday = i == todayIndex;
               return Column(
                 children: [
+                  // Tile
                   AnimatedContainer(
                     duration: Duration(milliseconds: 300 + i * 60),
-                    width: 34,
-                    height: 34,
+                    width: 36,
+                    height: 36,
                     decoration: BoxDecoration(
                       gradient: done ? FG.auroraGrad : null,
                       color: done ? null : FG.graphite,
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                          color: done ? Colors.transparent : FG.slate,
-                          width: 1),
+                        // Today's incomplete tile gets an aurora outline
+                        color: isToday && !done
+                            ? FG.aurora.withOpacity(0.5)
+                            : done
+                                ? Colors.transparent
+                                : FG.slate,
+                        width: isToday && !done ? 1.5 : 1,
+                      ),
                       boxShadow: done
                           ? [
                               BoxShadow(
@@ -652,12 +681,25 @@ class _HomeScreenState extends State<HomeScreen>
                       child: done
                           ? const Icon(Icons.check_rounded,
                               color: Colors.white, size: 16)
-                          : Text(days[i],
-                              style: FG.label(11, color: FG.textLow)),
+                          // Show the 2-letter abbreviation so Thu ≠ Tue
+                          : Text(
+                              dayLetters[i],
+                              style: FG.label(
+                                10,
+                                color: isToday ? FG.aurora : FG.textLow,
+                              ),
+                            ),
                     ),
                   ),
                   const SizedBox(height: 6),
-                  Text(days[i], style: FG.body(11, color: FG.textLow)),
+                  // Label below tile — full 3-letter abbreviation
+                  Text(
+                    dayLabels[i],
+                    style: FG.body(
+                      10,
+                      color: isToday ? FG.aurora : FG.textLow,
+                    ),
+                  ),
                 ],
               );
             }),
